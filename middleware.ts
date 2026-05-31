@@ -1,7 +1,14 @@
 import { updateSession } from '@/lib/supabase/proxy'
-import { type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  
+  // Skip auth for public tracking page and API
+  if (pathname.startsWith('/tra-cuu') || pathname.startsWith('/api/tra-cuu')) {
+    return NextResponse.next()
+  }
+  
   return await updateSession(request)
 }
 
