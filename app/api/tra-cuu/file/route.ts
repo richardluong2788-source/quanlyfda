@@ -1,5 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { get } from '@vercel/blob'
+import { query, queryOne } from '@/lib/db'
+
+interface ServiceRow {
+  id: string
+  fda_code: string | null
+  client_email: string | null
+}
+
+interface DocumentRow {
+  id: string
+  service_id: string
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,21 +31,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify ownership by checking if the service exists with this code and email
-    const { createAdminClient } = await import('@/lib/supabase/server')
-    const supabase = createAdminClient()
-
-    const { data: services } = await supabase
-      .from('services')
-      .select(`
-        id,
-        fda_code,
-        client:profiles!services_client_id_fkey(email)
-      `)
-      .ilike('fda_code', code)
-      .limit(5)
+    const services = await query<ServiceRow>(
+      `SELECT 
+        s.id,
+        s.fda_code,
+        p.email as client_email
+      FROM services s
+      LEFT JOIN profiles p ON s.client_id = p.id
+      WHERE LOWER(s.fda_code) = LOWER($1)
+      LIMIT 5`,
+      [code]
+    )
 
     const matchedService = services?.find(
-      (s) => s.client?.email?.toLowerCase() === email
+      (s) => s.client_email?.toLowerCase() === email
     )
 
     if (!matchedService) {
@@ -44,11 +55,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify the document belongs to this service
-    const { data: document } = await supabase
-      .from('documents')
-      .select('id, service_id')
-      .eq('file_url', pathname)
-      .single()
+    const document = await queryOne<DocumentRow>(
+      `SELECT id, service_id FROM documents WHERE file_url = $1`,
+      [pathname]
+    )
 
     if (!document || document.service_id !== matchedService.id) {
       return NextResponse.json(
