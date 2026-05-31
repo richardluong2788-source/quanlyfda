@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  BarChart3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState, useEffect } from 'react'
@@ -27,6 +28,7 @@ import type { Profile } from '@/lib/types'
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan' },
+  { href: '/dashboard/statistics', icon: BarChart3, label: 'Thống kê' },
   { href: '/dashboard/documents', icon: FileText, label: 'Tài liệu' },
   { href: '/dashboard/users', icon: Users, label: 'Người dùng', adminOnly: true },
   { href: '/dashboard/notifications', icon: Bell, label: 'Thông báo' },
