@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { StatisticsCharts } from '@/components/dashboard/statistics-charts'
-import { getMonthlyStatistics, getYearlyOverview, getAvailableYears, type MonthlyStats, type YearlyOverview } from '@/app/actions/services'
+import { getMonthlyStatistics, getYearlyOverview, getAvailableYears, type MonthlyStats, type YearlyOverview } from '@/app/actions/statistics'
 import { Loader2, BarChart3 } from 'lucide-react'
 
 export default function StatisticsPage() {
