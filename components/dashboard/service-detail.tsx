@@ -283,14 +283,16 @@ export function ServiceDetail({ serviceId }: ServiceDetailProps) {
           >
             Liên hệ hỗ trợ
           </Button>
-          <Button
-            onClick={() => {
-              // Navigate to edit service page or open edit dialog
-              window.location.href = `/dashboard/service/${serviceId}/edit`
-            }}
-          >
-            Cập nhật thông tin
-          </Button>
+          {isStaffOrAdmin && (
+            <Button
+              onClick={() => {
+                // Navigate to edit service page or open edit dialog
+                window.location.href = `/dashboard/service/${serviceId}/edit`
+              }}
+            >
+              Cập nhật thông tin
+            </Button>
+          )}
         </div>
       </div>
 
@@ -377,7 +379,7 @@ export function ServiceDetail({ serviceId }: ServiceDetailProps) {
                     <CardTitle className="text-foreground">Checklist công việc</CardTitle>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">
-                        {completedTasks}/{totalTasks} hoàn thành
+                        {completedTasks}/{totalTasks} ho��n thành
                       </span>
                       {isStaffOrAdmin && (
                         <CreateTaskDialog
@@ -490,23 +492,25 @@ export function ServiceDetail({ serviceId }: ServiceDetailProps) {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-foreground">Tài liệu</CardTitle>
-                    <UploadDocumentDialog 
-                      serviceId={serviceId} 
-                      serviceName={service.product_name}
-                      onUploadComplete={() => {
-                        // Refetch documents
-                        const fetchDocs = async () => {
-                          const supabase = createClient()
-                          const { data: docsData } = await supabase
-                            .from('documents')
-                            .select(`*, uploader:profiles!documents_uploaded_by_fkey(*)`)
-                            .eq('service_id', serviceId)
-                            .order('created_at', { ascending: false })
-                          if (docsData) setDocuments(docsData as Document[])
-                        }
-                        fetchDocs()
-                      }}
-                    />
+                    {isStaffOrAdmin && (
+                      <UploadDocumentDialog 
+                        serviceId={serviceId} 
+                        serviceName={service.product_name}
+                        onUploadComplete={() => {
+                          // Refetch documents
+                          const fetchDocs = async () => {
+                            const supabase = createClient()
+                            const { data: docsData } = await supabase
+                              .from('documents')
+                              .select(`*, uploader:profiles!documents_uploaded_by_fkey(*)`)
+                              .eq('service_id', serviceId)
+                              .order('created_at', { ascending: false })
+                            if (docsData) setDocuments(docsData as Document[])
+                          }
+                          fetchDocs()
+                        }}
+                      />
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -538,9 +542,18 @@ export function ServiceDetail({ serviceId }: ServiceDetailProps) {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={doc.document_type === 'result' ? 'default' : 'secondary'}>
-                            {doc.document_type === 'result' ? 'Kết quả' : 'Yêu cầu'}
-                          </Badge>
+                          {(() => {
+                            const isNewDocument = new Date(doc.created_at).getTime() > Date.now() - (7 * 24 * 60 * 60 * 1000)
+                            return (
+                              <Badge 
+                                variant={doc.document_type === 'result' ? 'default' : 'secondary'}
+                                className={isNewDocument && doc.document_type === 'result' ? 'ring-2 ring-green-500/50 animate-pulse' : ''}
+                              >
+                                {doc.document_type === 'result' ? 'Kết quả' : 'Yêu cầu'}
+                                {isNewDocument && doc.document_type === 'result' && ' - Mới'}
+                              </Badge>
+                            )
+                          })()}
                           {doc.file_url && (
                             <Button variant="ghost" size="icon" asChild title="Tải xuống">
                               <a
@@ -753,47 +766,73 @@ export function ServiceDetail({ serviceId }: ServiceDetailProps) {
               <CardTitle className="text-foreground">Thao tác nhanh</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <UploadDocumentDialog
-                serviceId={serviceId}
-                serviceName={service?.product_name}
-                open={uploadOpen}
-                onOpenChange={setUploadOpen}
-                trigger={
+              {/* Upload button - only for staff/admin */}
+              {isStaffOrAdmin && (
+                <UploadDocumentDialog
+                  serviceId={serviceId}
+                  serviceName={service?.product_name}
+                  open={uploadOpen}
+                  onOpenChange={setUploadOpen}
+                  trigger={
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2"
+                      onClick={() => setUploadOpen(true)}
+                    >
+                      <Upload className="h-4 w-4" />
+                      Tải lên tài liệu
+                    </Button>
+                  }
+                  onUploadComplete={() => {
+                    // Refresh documents
+                    const fetchDocs = async () => {
+                      const supabase = createClient()
+                      const { data: docsData } = await supabase
+                        .from('documents')
+                        .select('*')
+                        .eq('service_id', serviceId)
+                        .order('created_at', { ascending: false })
+                      if (docsData) setDocuments(docsData)
+                    }
+                    fetchDocs()
+                    setUploadOpen(false)
+                  }}
+                />
+              )}
+              
+              {/* Download FDA Certificate - find result document */}
+              {(() => {
+                const fdaCertificate = documents.find(d => d.document_type === 'result')
+                if (fdaCertificate && fdaCertificate.file_url) {
+                  return (
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2"
+                      asChild
+                    >
+                      <a
+                        href={`${fdaCertificate.file_url}${fdaCertificate.file_url.includes('?') ? '&' : '?'}download=1`}
+                        download={fdaCertificate.file_name}
+                        rel="noopener noreferrer"
+                      >
+                        <Download className="h-4 w-4" />
+                        Tải chứng nhận FDA
+                      </a>
+                    </Button>
+                  )
+                }
+                return (
                   <Button 
                     variant="outline" 
                     className="w-full justify-start gap-2"
-                    onClick={() => setUploadOpen(true)}
+                    disabled
                   >
-                    <Upload className="h-4 w-4" />
-                    Tải lên tài liệu
+                    <Clock className="h-4 w-4" />
+                    Chưa có chứng nhận FDA
                   </Button>
-                }
-                onUploadComplete={() => {
-                  // Refresh documents
-                  const fetchDocs = async () => {
-                    const supabase = createClient()
-                    const { data: docsData } = await supabase
-                      .from('documents')
-                      .select('*')
-                      .eq('service_id', serviceId)
-                      .order('created_at', { ascending: false })
-                    if (docsData) setDocuments(docsData)
-                  }
-                  fetchDocs()
-                  setUploadOpen(false)
-                }}
-              />
-              <Button 
-                variant="outline" 
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  // For FDA certificate, we can use the existing document type
-                  setUploadOpen(true)
-                }}
-              >
-                <Download className="h-4 w-4" />
-                Tải chứng nhận FDA
-              </Button>
+                )
+              })()}
+
               <Button 
                 variant="outline" 
                 className="w-full justify-start gap-2"
